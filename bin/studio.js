@@ -49,8 +49,16 @@ module.exports = {
     fs.writeFileSync(configPath, configContent);
     console.log(`Starting Drizzle Studio with URL...`);
 
-    // Why: Use npx to ensure drizzle-kit is available without global installation issues
-    const studio = spawn('npx', ['drizzle-kit', 'studio', '--config', configFileName], {
+    // Why: Use local drizzle-kit binary from the project to ensure dependencies (drizzle-orm, pg) are always available
+    const kitPath = path.resolve(__dirname, '../node_modules/.bin/drizzle-kit');
+    
+    if (!fs.existsSync(kitPath) && !fs.existsSync(kitPath + '.cmd')) {
+      console.error(`Error: drizzle-kit binary not found at ${kitPath}. Try running 'npm install' in the project folder.`);
+      cleanup();
+      process.exit(1);
+    }
+
+    const studio = spawn(kitPath, ['studio', '--config', configFileName], {
       stdio: 'inherit',
       shell: true
     });
