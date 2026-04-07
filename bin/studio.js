@@ -19,19 +19,23 @@ async function askQuestion(query) {
 }
 
 async function main() {
-  let dbUrl = process.argv[2];
+  const allArgs = process.argv.slice(2);
+  const dbUrl = allArgs.find(arg => !arg.startsWith('--'));
+  const passThroughArgs = allArgs.filter(arg => arg !== dbUrl);
 
-  // Why: Interactive fallback for ease of use
-  if (!dbUrl) {
-    dbUrl = await askQuestion('PostgreSQL Database URL: ');
+  let finalUrl = dbUrl;
+
+  // Why: Interactive input if no URL argument is provided
+  if (!finalUrl) {
+    finalUrl = await askQuestion('PostgreSQL Database URL: ');
   }
 
-  if (!dbUrl) {
+  if (!finalUrl) {
     console.error('Error: Database URL is required.');
     process.exit(1);
   }
 
-  // Why: Drizzle Studio requires a configuration file; we generate a temporary one
+  // Why: Drizzle Studio requires a configuration file; using a unique name to avoid overwriting project files
   const tempId = crypto.randomBytes(4).toString('hex');
   const configFileName = `drizzle.studio.${tempId}.config.js`;
   const configPath = path.join(process.cwd(), configFileName);
@@ -40,14 +44,14 @@ async function main() {
 module.exports = {
   dialect: "postgresql",
   dbCredentials: {
-    url: "${dbUrl}",
+    url: "${finalUrl}",
   },
 };
 `;
 
   try {
     fs.writeFileSync(configPath, configContent);
-    console.log(`Starting Drizzle Studio with URL...`);
+    console.log(`Starting Drizzle Studio...`);
 
     // Why: Use local drizzle-kit binary from the project to ensure dependencies (drizzle-orm, pg) are always available
     const kitPath = path.resolve(__dirname, '../node_modules/.bin/drizzle-kit');
@@ -58,7 +62,7 @@ module.exports = {
       process.exit(1);
     }
 
-    const studio = spawn(kitPath, ['studio', '--config', configFileName], {
+    const studio = spawn(kitPath, ['studio', '--config', configFileName, ...passThroughArgs], {
       stdio: 'inherit',
       shell: true
     });
