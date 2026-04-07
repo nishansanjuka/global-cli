@@ -1,0 +1,17 @@
+{
+  "name": "global-cli",
+  "version": "1.0.0",
+  "description": "Global CLI for local machine",
+  "main": "index.js",
+  "bin": {
+    "gcli": "./bin/index.js",
+    "anti": "./bin/anti.js",
+    "dzstudio": "./bin/studio.js"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
