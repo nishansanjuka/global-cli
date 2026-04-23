@@ -117,4 +117,12 @@ async function run() {
   }
 }
 
-run().catch(console.error);
+run().catch((err) => {
+  if (err.name === 'ExitPromptError') {
+    console.log('\nCancelled.');
+    process.exit(0);
+  } else {
+    console.error(err);
+    process.exit(1);
+  }
+});

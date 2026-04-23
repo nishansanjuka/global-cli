@@ -3,36 +3,40 @@
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const readline = require('readline');
 const crypto = require('crypto');
-
-// Why: Facilitate database connection via CLI arguments or interactive prompts for Drizzle Studio
-async function askQuestion(query) {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-  return new Promise((resolve) => rl.question(query, (ans) => {
-    rl.close();
-    resolve(ans.trim());
-  }));
-}
+const { select, input } = require('@inquirer/prompts');
 
 async function main() {
   const allArgs = process.argv.slice(2);
-  const dbUrl = allArgs.find(arg => !arg.startsWith('--'));
-  const passThroughArgs = allArgs.filter(arg => arg !== dbUrl);
+  const dbUrlArg = allArgs.find(arg => !arg.startsWith('--'));
+  const passThroughArgs = allArgs.filter(arg => arg !== dbUrlArg);
 
-  let finalUrl = dbUrl;
+  let finalUrl = dbUrlArg;
+  let dialect = "postgresql";
 
-  // Why: Interactive input if no URL argument is provided
-  if (!finalUrl) {
-    finalUrl = await askQuestion('PostgreSQL Database URL: ');
-  }
+  // Why: Interactive input if no URL argument is provided, infer if provided
+  if (finalUrl) {
+    if (finalUrl.startsWith('mysql://')) {
+      dialect = 'mysql';
+    } else if (finalUrl.startsWith('sqlite://') || finalUrl.endsWith('.db') || finalUrl.endsWith('.sqlite')) {
+      dialect = 'sqlite';
+    } else {
+      dialect = 'postgresql'; // Default assumption
+    }
+  } else {
+    dialect = await select({
+      message: 'Select database dialect:',
+      choices: [
+        { name: 'PostgreSQL', value: 'postgresql' },
+        { name: 'MySQL', value: 'mysql' },
+        { name: 'SQLite', value: 'sqlite' },
+      ],
+    });
 
-  if (!finalUrl) {
-    console.error('Error: Database URL is required.');
-    process.exit(1);
+    finalUrl = await input({
+      message: `Enter ${dialect === 'sqlite' ? 'database path (e.g., sqlite.db)' : dialect + ' database URL'}: `,
+      validate: (val) => val.trim().length > 0 || "URL/Path cannot be empty"
+    });
   }
 
   // Why: Drizzle Studio requires a configuration file; using a unique name to avoid overwriting project files
@@ -42,7 +46,7 @@ async function main() {
 
   const configContent = `
 module.exports = {
-  dialect: "postgresql",
+  dialect: "${dialect}",
   dbCredentials: {
     url: "${finalUrl}",
   },
@@ -51,11 +55,11 @@ module.exports = {
 
   try {
     fs.writeFileSync(configPath, configContent);
-    console.log(`Starting Drizzle Studio...`);
+    console.log(`Starting Drizzle Studio with ${dialect}...`);
 
     // Why: Use local drizzle-kit binary from the project to ensure dependencies (drizzle-orm, pg) are always available
     const kitPath = path.resolve(__dirname, '../node_modules/.bin/drizzle-kit');
-    
+
     if (!fs.existsSync(kitPath) && !fs.existsSync(kitPath + '.cmd')) {
       console.error(`Error: drizzle-kit binary not found at ${kitPath}. Try running 'npm install' in the project folder.`);
       cleanup();
@@ -72,7 +76,7 @@ module.exports = {
       if (fs.existsSync(configPath)) {
         try {
           fs.unlinkSync(configPath);
-        } catch (e) {}
+        } catch (e) { }
       }
     };
 
@@ -93,4 +97,12 @@ module.exports = {
   }
 }
 
-main();
+main().catch((err) => {
+  if (err.name === 'ExitPromptError') {
+    console.log('\nCancelled.');
+    process.exit(0);
+  } else {
+    console.error(err);
+    process.exit(1);
+  }
+});
