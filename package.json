@@ -13,7 +13,8 @@
   "bin": {
     "gcli": "./bin/index.js",
     "anti": "./bin/anti.js",
-    "dzstudio": "./bin/studio.js"
+    "dzstudio": "./bin/studio.js",
+    "astudio": "./bin/android-studio.js"
   },
   "scripts": {
     "test": "node --test tests/*.test.js"

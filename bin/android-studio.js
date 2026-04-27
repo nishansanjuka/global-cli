@@ -2,13 +2,14 @@
 
 const { spawn, execSync } = require("child_process");
 const os = require("os");
+const fs = require("fs");
 const { select, input } = require("@inquirer/prompts");
 
 // Try to get from environment variable
-let antigravityPath = process.env.ANTIGRAVITY_PATH;
+let androidStudioPath = process.env.ANDROID_STUDIO_PATH;
 
 function launch(executablePath) {
-  // Get arguments passed to 'anti' (e.g., '.' for the current directory)
+  // Get arguments passed to the command (e.g., '.' for the current directory)
   const args = process.argv.slice(2);
 
   // We ensure the path is quoted if it has spaces
@@ -19,20 +20,19 @@ function launch(executablePath) {
   const escapedArgs = args.map(arg => `"${arg.replace(/"/g, '\\"')}"`);
   const fullCommand = `${commandPath} ${escapedArgs.join(' ')}`;
 
-  
-  // Launch Antigravity with the provided arguments
-  const anti = spawn(fullCommand, {
+  // Launch Android Studio with the provided arguments
+  const studio = spawn(fullCommand, {
     shell: true,
     stdio: "inherit",
     detached: true,
   });
 
-  anti.on("error", (err) => {
-    console.error(`Failed to start Antigravity: ${err.message}`);
+  studio.on("error", (err) => {
+    console.error(`Failed to start Android Studio: ${err.message}`);
   });
 
   // Allow the process to exit independently of the child
-  anti.unref();
+  studio.unref();
 }
 
 async function findExecutables() {
@@ -41,27 +41,46 @@ async function findExecutables() {
 
   try {
     if (platform === "win32") {
-      // Find paths using where.exe
-      const output = execSync("where.exe antigravity", { encoding: "utf-8", stdio: ["ignore", "pipe", "ignore"] });
+      // Find paths using where.exe for studio64.exe
+      const output = execSync("where.exe studio64.exe", { encoding: "utf-8", stdio: ["ignore", "pipe", "ignore"] });
       paths = output.split("\n").map(p => p.trim()).filter(p => p);
+    } else if (platform === "darwin") {
+      // Find on Mac
+      paths.push("/Applications/Android Studio.app/Contents/MacOS/studio");
     } else {
       // Find paths using which
-      const output = execSync("which antigravity", { encoding: "utf-8", stdio: ["ignore", "pipe", "ignore"] });
+      const output = execSync("which studio", { encoding: "utf-8", stdio: ["ignore", "pipe", "ignore"] });
       paths = output.split("\n").map(p => p.trim()).filter(p => p);
     }
   } catch (err) {
     // Command fails if not found, we just ignore
   }
 
-  // Add the known shortcut on Windows just in case
+  // Add the known shortcuts and default paths on Windows just in case
   if (platform === "win32") {
-    const defaultShortcut = `C:\\Users\\${os.userInfo().username}\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Antigravity\\Antigravity.lnk`;
-    if (!paths.includes(defaultShortcut)) {
-      paths.push(defaultShortcut);
+    const allUsersShortcut = `C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Android Studio\\Android Studio.lnk`;
+    const currentUserShortcut = `C:\\Users\\${os.userInfo().username}\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Android Studio\\Android Studio.lnk`;
+    const defaultExe = "C:\\Program Files\\Android\\Android Studio\\bin\\studio64.exe";
+    
+    if (!paths.includes(allUsersShortcut)) {
+      paths.push(allUsersShortcut);
+    }
+    if (!paths.includes(currentUserShortcut)) {
+      paths.push(currentUserShortcut);
+    }
+    if (!paths.includes(defaultExe)) {
+      paths.push(defaultExe);
     }
   }
 
-  return paths;
+  // Only return paths that actually exist to provide a better user experience
+  return paths.filter(p => {
+    try {
+      return fs.existsSync(p);
+    } catch (e) {
+      return false;
+    }
+  });
 }
 
 function savePath(selectedPath) {
@@ -69,11 +88,11 @@ function savePath(selectedPath) {
   const cleanPath = selectedPath.replace(/^"|"$/g, '');
   try {
     if (platform === "win32") {
-      execSync(`setx ANTIGRAVITY_PATH "${cleanPath}"`, { stdio: 'ignore' });
-      console.log("Path saved permanently to system variables (ANTIGRAVITY_PATH).");
+      execSync(`setx ANDROID_STUDIO_PATH "${cleanPath}"`, { stdio: 'ignore' });
+      console.log("Path saved permanently to system variables (ANDROID_STUDIO_PATH).");
     } else {
-      console.log(`\nTo save permanently on this OS, please add this to your profile (e.g. ~/.bashrc):`);
-      console.log(`export ANTIGRAVITY_PATH="${cleanPath}"\n`);
+      console.log(`\nTo save permanently on this OS, please add this to your profile (e.g. ~/.bashrc or ~/.zshrc):`);
+      console.log(`export ANDROID_STUDIO_PATH="${cleanPath}"\n`);
     }
   } catch (err) {
     console.error("Failed to save path:", err.message);
@@ -82,8 +101,8 @@ function savePath(selectedPath) {
 }
 
 async function run() {
-  if (antigravityPath) {
-    launch(antigravityPath);
+  if (androidStudioPath) {
+    launch(androidStudioPath);
     return;
   }
 
@@ -96,17 +115,17 @@ async function run() {
     choices.push({ name: "None of the above - Enter manually", value: MANUAL_OPTION });
 
     chosenPath = await select({
-      message: "Antigravity was found in these locations. Please select the correct one:",
+      message: "Android Studio was found in these locations. Please select the correct one:",
       choices: choices
     });
   } else {
-    console.log("Antigravity could not be found automatically in your PATH.");
+    console.log("Android Studio could not be found automatically in your PATH or standard locations.");
     chosenPath = MANUAL_OPTION;
   }
 
   if (chosenPath === MANUAL_OPTION) {
     chosenPath = await input({
-      message: "Please enter the full path to the Antigravity executable or shortcut:",
+      message: "Please enter the full path to the Android Studio executable or shortcut:",
       validate: (val) => val.trim().length > 0 || "Path cannot be empty"
     });
   }
