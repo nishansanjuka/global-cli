@@ -15,9 +15,13 @@ function launch(executablePath) {
   // We ensure the path is quoted if it has spaces
   const commandPath = executablePath.startsWith('"') ? executablePath : `"${executablePath}"`;
 
-  // To avoid the Node.js DEP0190 deprecation warning when using shell: true,
-  // we must pass a single string command instead of an array of arguments.
-  const escapedArgs = args.map(arg => `"${arg.replace(/"/g, '\\"')}"`);
+  // For Android Studio, we just pass arguments through. 
+  // We quote each argument individually to handle spaces, but we don't wrap the whole thing in another layer.
+  const escapedArgs = args.map(arg => {
+    // If the argument is already quoted, don't double quote it
+    if (arg.startsWith('"') && arg.endsWith('"')) return arg;
+    return `"${arg}"`;
+  });
   const fullCommand = `${commandPath} ${escapedArgs.join(' ')}`;
 
   // Launch Android Studio with the provided arguments

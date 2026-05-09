@@ -33,13 +33,13 @@ const banner = `
 ██      ██       ██  ██  ██  ██  ██  ██  ██        ██      ██       ██          
 ██  ███ ██       ██  ██  ████    ██████  ██        ██      ██       ██        
 ██   ██ ██       ██  ██  ██  ██  ██  ██  ██        ██      ██       ██         
- ████   ███████   ████   ████    ██  ██  ███████    ████   ███████  ██     ${reset}  
-`;
+ ████   ███████   ████   ████    ██  ██  ███████    ████   ███████  ██     ${reset}
+
+\x1b[90mby Nipuna Nishan\x1b[0m \x1b[36mv${version}\x1b[0m
+ `;
 
 const helpMessage = `
 ${banner}
-
-${logoBlock}
 --------------------------------------------------
 A professional collection of global CLI tools to enhance local development environments.
 
